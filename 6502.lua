@@ -1,4 +1,14 @@
+-------------------------------------------------------
+-- 6502 Opcodes Table
+-------------------------------------------------------
 local opcodes = {
+  -- KIL (Illegal Opcode)
+  -- KIL Implied
+  [0x02] = function(cpu)
+    cpu.halted = true
+    return 2
+  end,
+
   -- ADC (Add with Carry)
   -- ADC Immediate
   [0x69] = function(cpu)
@@ -94,7 +104,8 @@ local opcodes = {
   [0x7D] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -112,13 +123,18 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- ADC Absolute,Y
   [0x79] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -136,7 +152,11 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- ADC (Indirect,X)
   [0x61] = function(cpu)
@@ -169,7 +189,8 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -187,7 +208,11 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- AND (Logical AND)
@@ -229,21 +254,31 @@ local opcodes = {
   [0x3D] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A & value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- AND Absolute,Y
   [0x39] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A & value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- AND (Indirect,X)
   [0x21] = function(cpu)
@@ -262,11 +297,16 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A & value
     cpu:znupdate(cpu.A)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- ASL (Arithmetic Shift Left)
@@ -353,73 +393,121 @@ local opcodes = {
   [0x90] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x01) == 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BCS Relative
   [0xB0] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x01) ~= 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BEQ Relative
   [0xF0] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x02) ~= 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BMI Relative
   [0x30] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x80) ~= 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BNE Relative
   [0xD0] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x02) == 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BPL Relative
   [0x10] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x80) == 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BVC Relative
   [0x50] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x40) == 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
   -- BVS Relative
   [0x70] = function(cpu)
     local offset = cpu:fetch()
     if offset >= 0x80 then offset = offset - 0x100 end
+    local cycles = 2
     if (cpu.P & 0x40) ~= 0 then
+      local oldPC = cpu.PC
       cpu.PC = (cpu.PC + offset) & 0xFFFF
+      cycles = cycles + 1
+      if (oldPC & 0xFF00) ~= (cpu.PC & 0xFF00) then
+        cycles = cycles + 1
+      end
     end
-    return 2
+    return cycles
   end,
 
   -- BIT (Bit Test)
@@ -471,15 +559,8 @@ local opcodes = {
   -- BRK (Force Interrupt)
   -- BRK Implied
   [0x00] = function(cpu)
-    cpu.PC = (cpu.PC + 1) & 0xFFFF
-    local pc = cpu.PC
-    cpu:push((pc >> 8) & 0xFF)
-    cpu:push(pc & 0xFF)
-    cpu:push(cpu.P | 0x10)
-    cpu.P = cpu.P | 0x04
-    local lo = cpu:read(0xFFFE)
-    local hi = cpu:read(0xFFFF)
-    cpu.PC = lo + (hi << 8)
+    -- corrected: halts execution by setting cpu.halted
+    cpu.halted = true
     return 7
   end,
 
@@ -564,7 +645,8 @@ local opcodes = {
   [0xDD] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     local result = (cpu.A - value) & 0xFF
     if cpu.A >= value then
@@ -573,13 +655,18 @@ local opcodes = {
       cpu.P = cpu.P & 0xFE
     end
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- CMP Absolute,Y
   [0xD9] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local result = (cpu.A - value) & 0xFF
     if cpu.A >= value then
@@ -588,7 +675,11 @@ local opcodes = {
       cpu.P = cpu.P & 0xFE
     end
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- CMP (Indirect,X)
   [0xC1] = function(cpu)
@@ -612,7 +703,8 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local result = (cpu.A - value) & 0xFF
     if cpu.A >= value then
@@ -621,7 +713,11 @@ local opcodes = {
       cpu.P = cpu.P & 0xFE
     end
     cpu:znupdate(result)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- CPX (Compare X Register)
@@ -802,21 +898,31 @@ local opcodes = {
   [0x5D] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A ~ value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- EOR Absolute,Y
   [0x59] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A ~ value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- EOR (Indirect,X)
   [0x41] = function(cpu)
@@ -835,11 +941,16 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A ~ value
     cpu:znupdate(cpu.A)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- INC (Increment Memory)
@@ -912,6 +1023,7 @@ local opcodes = {
     local ptr = lo_addr + (hi_addr << 8)
     local lo = cpu:read(ptr)
     local hi
+    -- 6502 page-boundary hardware bug handling:
     if (ptr & 0xFF) == 0xFF then
       hi = cpu:read(ptr & 0xFF00)
     else
@@ -969,19 +1081,29 @@ local opcodes = {
   [0xBD] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     cpu.A = cpu:read(addr)
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- LDA Absolute,Y
   [0xB9] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     cpu.A = cpu:read(addr)
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- LDA (Indirect,X)
   [0xA1] = function(cpu)
@@ -999,10 +1121,15 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     cpu.A = cpu:read(addr)
     cpu:znupdate(cpu.A)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- LDX (Load X Register)
@@ -1040,10 +1167,15 @@ local opcodes = {
   [0xBE] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     cpu.X = cpu:read(addr)
     cpu:znupdate(cpu.X)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- LDY (Load Y Register)
@@ -1081,10 +1213,15 @@ local opcodes = {
   [0xBC] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     cpu.Y = cpu:read(addr)
     cpu:znupdate(cpu.Y)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- LSR (Logical Shift Right)
@@ -1211,21 +1348,31 @@ local opcodes = {
   [0x1D] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A | value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- ORA Absolute,Y
   [0x19] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A | value
     cpu:znupdate(cpu.A)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- ORA (Indirect,X)
   [0x01] = function(cpu)
@@ -1244,11 +1391,16 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     cpu.A = cpu.A | value
     cpu:znupdate(cpu.A)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- PHA (Push Accumulator)
@@ -1562,7 +1714,8 @@ local opcodes = {
   [0xFD] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.X) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.X) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -1580,13 +1733,18 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- SBC Absolute,Y
   [0xF9] = function(cpu)
     local lo = cpu:fetch()
     local hi = cpu:fetch()
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -1604,7 +1762,11 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 4
+    local cycles = 4
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
   -- SBC (Indirect,X)
   [0xE1] = function(cpu)
@@ -1637,7 +1799,8 @@ local opcodes = {
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
-    local addr = (lo + (hi << 8) + cpu.Y) & 0xFFFF
+    local base = lo + (hi << 8)
+    local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
     local carry = cpu.P & 0x01
     local A = cpu.A
@@ -1655,7 +1818,11 @@ local opcodes = {
     end
     cpu.A = result
     cpu:znupdate(result)
-    return 5
+    local cycles = 5
+    if (base & 0xFF00) ~= (addr & 0xFF00) then
+      cycles = cycles + 1
+    end
+    return cycles
   end,
 
   -- Set Carry, Decimal and Interrupt flags
@@ -1780,6 +1947,9 @@ local opcodes = {
   end,
 }
 
+-------------------------------------------------------
+-- 6502 CPU Emulation
+-------------------------------------------------------
 local MOS6502 = {}
 MOS6502.__index = MOS6502
 
@@ -1792,6 +1962,7 @@ function MOS6502.new()
   self.PC     = 0x0000 -- Program Counter
   self.P      = 0x24   -- Processor Status
   self.cycles = 0      -- Cycle count
+  self.halted = false  -- Indicates whether the CPU is halted
 
   self.memory = {}
   for i = 0, 0xFFFF do
@@ -1809,26 +1980,25 @@ function MOS6502:write(addr, value)
 end
 
 function MOS6502:fetch()
-  local mem  = self.memory
   local pc   = self.PC
-  local byte = mem[pc]
+  local byte = self.memory[pc]
   self.PC    = (pc + 1) & 0xFFFF
   return byte
 end
 
 function MOS6502:znupdate(value)
-  local P = self.P
+  -- Z flag
   if value == 0 then
-    P = P | 0x02
+    self.P = self.P | 0x02
   else
-    P = P & 0xFD
+    self.P = self.P & 0xFD
   end
+  -- N flag
   if (value & 0x80) ~= 0 then
-    P = P | 0x80
+    self.P = self.P | 0x80
   else
-    P = P & 0x7F
+    self.P = self.P & 0x7F
   end
-  self.P = P
 end
 
 function MOS6502:step()
@@ -1838,7 +2008,6 @@ function MOS6502:step()
     self.cycles = self.cycles + op(self)
     return
   end
-
   error(string.format("opcode 0x%02X not implemented.", opcode))
 end
 
@@ -1885,3 +2054,28 @@ function MOS6502:nmi()
   self.PC = mem[0xFFFA] + (mem[0xFFFB] << 8)
   self.cycles = self.cycles + 8
 end
+
+local cpu = MOS6502.new()
+
+-- Define the Reset vector to 0x8000
+cpu:write(0xFFFC, 0x00) -- Low byte
+cpu:write(0xFFFD, 0x80) -- High byte
+
+-- Program at 0x8000:
+-- 0xA9 0x03 -> LDA #$03 (load A = 3)
+-- 0x69 0x27 -> ADC #$27 (add 39 to A: 3 + 39 = 42)
+-- 0x00      -> BRK (halt execution)
+cpu:write(0x8000, 0xA9) -- LDA #$
+cpu:write(0x8001, 0x03) -- 3
+cpu:write(0x8002, 0x69) -- ADC #$
+cpu:write(0x8003, 0x27) -- 39 (0x27 in hex)
+cpu:write(0x8004, 0x00) -- BRK
+
+cpu:reset()
+
+while not cpu.halted do
+  cpu:step()
+end
+
+print("A =", cpu.A)
+print("CPU cycles =", cpu.cycles)
