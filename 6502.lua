@@ -369,7 +369,6 @@ local opcodes = {
 local CPU6502 = {}
 CPU6502.__index = CPU6502
 
--- Constructor for CPU6502
 function CPU6502.new()
   local self  = setmetatable({}, CPU6502)
   self.A      = 0      -- Accumulator
@@ -387,17 +386,14 @@ function CPU6502.new()
   return self
 end
 
--- Read a byte from memory
 function CPU6502:read(addr)
   return self.memory[addr] or 0
 end
 
--- Write a byte to memory (ensuring the value is within 0x00-0xFF)
 function CPU6502:write(addr, value)
   self.memory[addr] = value & 0xFF
 end
 
--- Fetch a byte from memory and increment the program counter
 function CPU6502:fetch()
   local byte = self:read(self.PC)
   self.PC = (self.PC + 1) & 0xFFFF
