@@ -395,7 +395,9 @@ function MOS6502:write(addr, value)
 end
 
 function MOS6502:fetch()
-  local byte = self:read(self.PC)
-  self.PC = (self.PC + 1) & 0xFFFF
+  local mem  = self.memory
+  local pc   = self.PC
+  local byte = mem[pc]
+  self.PC    = (pc + 1) & 0xFFFF
   return byte
 end
