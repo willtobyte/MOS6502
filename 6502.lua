@@ -402,7 +402,7 @@ function MOS6502:fetch()
   return byte
 end
 
-function MOS6502:flag(value)
+function MOS6502:znupdate(value)
   local P = self.P
   if value == 0 then
     P = P | 0x02
@@ -415,14 +415,6 @@ function MOS6502:flag(value)
     P = P & 0x7F
   end
   self.P = P
-end
-
-function MOS6502:step()
-  local opcode = self:fetch()
-  local operation = opcodes[opcode]
-  if operation then
-    operation(self)
-  end
 end
 
 function MOS6502:step()
