@@ -387,7 +387,7 @@ function MOS6502.new()
 end
 
 function MOS6502:read(addr)
-  return self.memory[addr] or 0
+  return self.memory[addr]
 end
 
 function MOS6502:write(addr, value)
@@ -438,31 +438,33 @@ end
 
 function MOS6502:reset()
   local mem = self.memory
-  self.PC = (mem[0xFFFC] or 0) + ((mem[0xFFFD] or 0) << 8)
+  self.PC = mem[0xFFFC] + (mem[0xFFFD] << 8)
   self.SP = 0xFD
   self.P = 0x24
 end
 
 function MOS6502:irq()
-  if (self.P & 0x04) == 0 then
+  local p = self.P
+  if (p & 0x04) == 0 then
     local pc = self.PC
     self:push((pc >> 8) & 0xFF)
     self:push(pc & 0xFF)
-    self:push(self.P | 0x20)
-    self.P = self.P | 0x04
+    self:push((p & 0xEF) | 0x20)
+    self.P = p | 0x04
     local mem = self.memory
-    self.PC = (mem[0xFFFE] or 0) + ((mem[0xFFFF] or 0) << 8)
+    self.PC = mem[0xFFFE] + (mem[0xFFFF] << 8)
     self.cycles = self.cycles + 7
   end
 end
 
 function MOS6502:nmi()
+  local p = self.P
   local pc = self.PC
   self:push((pc >> 8) & 0xFF)
   self:push(pc & 0xFF)
-  self:push(self.P | 0x20)
-  self.P = self.P | 0x04
+  self:push((p & 0xEF) | 0x20)
+  self.P = p | 0x04
   local mem = self.memory
-  self.PC = (mem[0xFFFA] or 0) + ((mem[0xFFFB] or 0) << 8)
+  self.PC = mem[0xFFFA] + (mem[0xFFFB] << 8)
   self.cycles = self.cycles + 8
 end
