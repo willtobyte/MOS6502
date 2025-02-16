@@ -401,3 +401,70 @@ function MOS6502:fetch()
   self.PC    = (pc + 1) & 0xFFFF
   return byte
 end
+
+---
+
+function MOS6502:flag(val)
+  local P = self.P
+  if val == 0 then
+    P = P | 0x02
+  else
+    P = P & 0xFD
+  end
+  if (val & 0x80) ~= 0 then
+    P = P | 0x80
+  else
+    P = P & 0x7F
+  end
+  self.P = P
+end
+
+function MOS6502:step()
+  local opcode = self:fetch()
+  local operation = opcodes[opcode]
+  if operation then
+    operation(self)
+  end
+end
+
+function MOS6502:push(val)
+  local sp = self.SP
+  self:write(0x0100 + sp, val)
+  self.SP = (sp - 1) & 0xFF
+end
+
+function MOS6502:pop()
+  self.SP = (self.SP + 1) & 0xFF
+  return self:read(0x0100 + self.SP)
+end
+
+function MOS6502:reset()
+  local mem = self.memory
+  self.PC = (mem[0xFFFC] or 0) + ((mem[0xFFFD] or 0) << 8)
+  self.SP = 0xFD
+  self.P = 0x24
+end
+
+function MOS6502:irq()
+  if (self.P & 0x04) == 0 then
+    local pc = self.PC
+    self:push((pc >> 8) & 0xFF)
+    self:push(pc & 0xFF)
+    self:push(self.P | 0x20)
+    self.P = self.P | 0x04
+    local mem = self.memory
+    self.PC = (mem[0xFFFE] or 0) + ((mem[0xFFFF] or 0) << 8)
+    self.cycles = self.cycles + 7
+  end
+end
+
+function MOS6502:nmi()
+  local pc = self.PC
+  self:push((pc >> 8) & 0xFF)
+  self:push(pc & 0xFF)
+  self:push(self.P | 0x20)
+  self.P = self.P | 0x04
+  local mem = self.memory
+  self.PC = (mem[0xFFFA] or 0) + ((mem[0xFFFB] or 0) << 8)
+  self.cycles = self.cycles + 8
+end
