@@ -366,11 +366,11 @@ local opcodes = {
   [0x8C] = function() end,
 }
 
-local CPU6502 = {}
-CPU6502.__index = CPU6502
+local MOS6502 = {}
+MOS6502.__index = MOS6502
 
-function CPU6502.new()
-  local self  = setmetatable({}, CPU6502)
+function MOS6502.new()
+  local self  = setmetatable({}, MOS6502)
   self.A      = 0      -- Accumulator
   self.X      = 0      -- X Register
   self.Y      = 0      -- Y Register
@@ -386,15 +386,15 @@ function CPU6502.new()
   return self
 end
 
-function CPU6502:read(addr)
+function MOS6502:read(addr)
   return self.memory[addr] or 0
 end
 
-function CPU6502:write(addr, value)
+function MOS6502:write(addr, value)
   self.memory[addr] = value & 0xFF
 end
 
-function CPU6502:fetch()
+function MOS6502:fetch()
   local byte = self:read(self.PC)
   self.PC = (self.PC + 1) & 0xFFFF
   return byte
