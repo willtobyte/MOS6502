@@ -402,16 +402,14 @@ function MOS6502:fetch()
   return byte
 end
 
----
-
-function MOS6502:flag(val)
+function MOS6502:flag(value)
   local P = self.P
-  if val == 0 then
+  if value == 0 then
     P = P | 0x02
   else
     P = P & 0xFD
   end
-  if (val & 0x80) ~= 0 then
+  if (value & 0x80) ~= 0 then
     P = P | 0x80
   else
     P = P & 0x7F
