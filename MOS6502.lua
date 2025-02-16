@@ -158,6 +158,7 @@ local opcodes = {
   -- ADC (Indirect,X)
   [0x61] = function(cpu)
     local zp = cpu:fetch()
+    -- Corrected: In (Indirect,X), add X only once to the zero page address.
     local ptr = (zp + cpu.X) & 0xFF
     local lo = cpu:read(ptr)
     local hi = cpu:read((ptr + 1) & 0xFF)
@@ -183,13 +184,16 @@ local opcodes = {
   end,
   -- ADC (Indirect),Y
   [0x71] = function(cpu)
+    local carry = ((cpu.P & 0x01) ~= 0) and 1 or 0
     local zp = cpu:fetch()
     local lo = cpu:read(zp)
     local hi = cpu:read((zp + 1) & 0xFF)
     local base = lo + (hi << 8)
     local addr = (base + cpu.Y) & 0xFFFF
     local value = cpu:read(addr)
-    local carry = cpu.P & 0x01
+    if (cpu.P & 0x01) ~= 0 then
+      carry = 1
+    end
     local A = cpu.A
     local sum = A + value + carry
     local result = sum & 0xFF
@@ -211,7 +215,6 @@ local opcodes = {
     end
     return cycles
   end,
-
   -- AND (Logical AND)
   -- AND Immediate
   [0x29] = function(cpu)
@@ -556,8 +559,16 @@ local opcodes = {
   -- BRK (Force Interrupt)
   -- BRK Implied
   [0x00] = function(cpu)
-    -- corrected: halts execution by setting cpu.halted
-    cpu.halted = true
+    -- Corrected: BRK now pushes PC+1 and status (with break flag set),
+    -- sets the interrupt disable flag, and loads the IRQ vector.
+    cpu.PC = (cpu.PC + 1) & 0xFFFF -- Skip the next byte (padding)
+    local return_addr = cpu.PC
+    cpu:push((return_addr >> 8) & 0xFF)
+    cpu:push(return_addr & 0xFF)
+    cpu:push((cpu.P | 0x10) & 0xEF) -- Set break flag and clear unused bit 4
+    cpu.P = cpu.P | 0x04            -- Set interrupt disable flag
+    local mem = cpu.memory
+    cpu.PC = mem[0xFFFE] + (mem[0xFFFF] << 8)
     return 7
   end,
 
@@ -2049,27 +2060,4 @@ function MOS6502:nmi()
   self.cycles = self.cycles + 8
 end
 
-local cpu = MOS6502.new()
-
--- Define the Reset vector to 0x8000
-cpu:write(0xFFFC, 0x00) -- Low byte
-cpu:write(0xFFFD, 0x80) -- High byte
-
--- Program at 0x8000:
--- 0xA9 0x03 -> LDA #$03 (load A = 3)
--- 0x69 0x27 -> ADC #$27 (add 39 to A: 3 + 39 = 42)
--- 0x00      -> BRK (halt execution)
-cpu:write(0x8000, 0xA9) -- LDA #$
-cpu:write(0x8001, 0x03) -- 3
-cpu:write(0x8002, 0x69) -- ADC #$
-cpu:write(0x8003, 0x27) -- 39 (0x27 in hex)
-cpu:write(0x8004, 0x00) -- BRK
-
-cpu:reset()
-
-while not cpu.halted do
-  cpu:step()
-end
-
-print("A =", cpu.A)
-print("CPU cycles =", cpu.cycles)
+return MOS6502
