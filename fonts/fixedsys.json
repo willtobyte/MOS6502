@@ -1,0 +1,6 @@
+{
+	"alphabet": " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?-+/():;%&`'*#=[]",
+	"spritesheet": "blobs/fixedsys.png",
+	"spacing": 0.5,
+	"scale": 1.0
+}
