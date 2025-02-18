@@ -262,8 +262,7 @@ cpu.memory[0xFFFD] = (address >> 8) & 0xFF
 
 cpu:reset()
 
-for i = 1, 3000 do
-  if cpu.halted then break end
+while not cpu.halted do
   cpu:step()
 end
 
