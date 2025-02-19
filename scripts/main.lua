@@ -8,7 +8,7 @@ local overlay
 
 local labels = {}
 
-local buffer = ""
+local buffer = [[]]
 local io = {
   [0xD010] = function(value)
     buffer = buffer .. string.char(value)
