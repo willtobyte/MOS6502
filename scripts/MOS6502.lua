@@ -2090,6 +2090,7 @@ function MOS6502:reset()
   self.PC = mem[0xFFFC] + (mem[0xFFFD] << 8)
   self.SP = 0xFD
   self.P = 0x24
+  self.halted = false
 end
 
 function MOS6502:irq()

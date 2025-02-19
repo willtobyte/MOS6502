@@ -104,13 +104,16 @@ function setup()
 end
 
 function loop()
-  if not cpu.halted then
+  if cpu.halted then
+    cpu:reset()
+    buffer = [[]]
+  else
     cpu:step()
   end
 
   for i = 1, #labels do
-    local l = labels[i]
-    l.widget:set(l.prefix .. l.getter(), 10, l.y)
+    local label = labels[i]
+    label.widget:set(label.prefix .. label.getter(), 10, label.y)
   end
 end
 
